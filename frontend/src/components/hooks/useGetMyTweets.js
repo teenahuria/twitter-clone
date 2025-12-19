@@ -38,7 +38,7 @@ const useGetMyTweets = (id) => {
       }
     }
   useEffect(() => {
-  if (!id) return;       // ⛔ Prevent API call when id is undefined
+  if (!id) return;       //  Prevent API call when id is undefined
 
   if (isActive) {
     fetchMyTweets();
