@@ -18,7 +18,7 @@ app.use(express.json());//
 app.use(cookieParser());// to parse cookies from request headers
 
 const corsOptions = {
-    origin: 'http://localhost:3000', // Frontend URL
+    origin: 'https://twitter-frontend-oq0u.onrender.com', // Frontend URL
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     credentials: true, // Allow cookies to be sent
 };
