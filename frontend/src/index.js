@@ -5,6 +5,10 @@ import App from './App';
 import { Provider } from 'react-redux';
 import { store, persistor } from './redux/store.js';
 import { PersistGate } from 'redux-persist/integration/react';
+import axios from 'axios';   // ✅ ADD THIS
+
+// ✅ VERY IMPORTANT (GLOBAL FIX)
+axios.defaults.withCredentials = true;
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 

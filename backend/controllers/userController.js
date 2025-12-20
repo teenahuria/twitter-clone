@@ -123,7 +123,7 @@ export const logout = async (req, res) => {
 };
 export const bookmarks = async (req, res) => {
   try {
-    const loggedInUserId = req.body.id; 
+    const loggedInUserId = req.user; 
     const tweetId = req.params.id; 
 
     

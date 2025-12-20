@@ -1,21 +1,32 @@
 import { Tweet } from "../models/tweetSchema.js";
 import { User } from "../models/userSchema.js";
 
+/* ================= CREATE TWEET ================= */
 export const createTweet = async (req, res) => {
   try {
-    const { description, id } = req.body;
-    if (!description || !id) {
-      return res.status(401).json({
-        message: "Description and User ID are required",
+    const { description } = req.body;
+    const userId = req.user; // ✅ from auth middleware
+
+    if (!description) {
+      return res.status(400).json({
+        message: "Description is required",
         success: false,
       });
     }
-    const user=await User.findById(id);
-    await Tweet.create({ description, userId: id,userDetails:user });
+
+    const user = await User.findById(userId);
+
+    await Tweet.create({
+      description,
+      userId,
+      userDetails: user,
+    });
+
     return res.status(201).json({
       message: "Tweet created successfully",
       success: true,
     });
+
   } catch (error) {
     console.log("Create Tweet Error:", error);
     return res.status(500).json({
@@ -25,15 +36,32 @@ export const createTweet = async (req, res) => {
   }
 };
 
+/* ================= DELETE TWEET ================= */
 export const deleteTweet = async (req, res) => {
   try {
-    const { id } = req.params;
+    const tweetId = req.params.id;
+    const userId = req.user;
 
-    await Tweet.findByIdAndDelete(id);
+    const tweet = await Tweet.findById(tweetId);
+
+    if (!tweet) {
+      return res.status(404).json({ message: "Tweet not found" });
+    }
+
+    //  Only owner can delete
+    if (tweet.userId.toString() !== userId) {
+      return res.status(403).json({
+        message: "Unauthorized to delete this tweet",
+      });
+    }
+
+    await Tweet.findByIdAndDelete(tweetId);
+
     return res.status(200).json({
       message: "Tweet deleted successfully",
       success: true,
     });
+
   } catch (error) {
     console.log("Delete Tweet Error:", error);
     return res.status(500).json({
@@ -43,30 +71,41 @@ export const deleteTweet = async (req, res) => {
   }
 };
 
+/* ================= LIKE / DISLIKE ================= */
 export const likeOrDislike = async (req, res) => {
   try {
-    const loggedInUserId = req.body.id;
+    const userId = req.user; // ✅ authenticated user
     const tweetId = req.params.id;
 
     const tweet = await Tweet.findById(tweetId);
-    if (tweet.like.includes(loggedInUserId)) {
+
+    if (!tweet) {
+      return res.status(404).json({
+        message: "Tweet not found",
+        success: false,
+      });
+    }
+
+    if (tweet.like.includes(userId)) {
       await Tweet.findByIdAndUpdate(tweetId, {
-        $pull: { like: loggedInUserId },
+        $pull: { like: userId },
       });
 
       return res.status(200).json({
-        message: "Tweet disliked successfully",
+        message: "Tweet disliked",
         success: true,
       });
     } else {
       await Tweet.findByIdAndUpdate(tweetId, {
-        $push: { like: loggedInUserId },
+        $push: { like: userId },
+      });
+
+      return res.status(200).json({
+        message: "Tweet liked",
+        success: true,
       });
     }
-    return res.status(200).json({
-      message: "Tweet like status updated",
-      success: true,
-    });
+
   } catch (error) {
     console.log("Like/Dislike Error:", error);
     return res.status(500).json({
@@ -76,41 +115,23 @@ export const likeOrDislike = async (req, res) => {
   }
 };
 
-
-//getAllTweets=loggedInUser+following users tweets
+/* ================= GET ALL TWEETS ================= */
 export const getAllTweets = async (req, res) => {
   try {
-    const id = req.params.id; // logged-in user ID
-     if (!id) {
-      return res.status(400).json({
-        success: false,
-        message: "User ID is missing in request params",
-      });
-    }
-    const loggedInUser = await User.findById(id);
+    const userId = req.user;
 
-    if (!loggedInUser) {
-      return res.status(404).json({
-        message: "User not found",
-        success: false,
-      });
-    }
+    const loggedInUser = await User.findById(userId);
 
-    //  Get tweets of the logged-in user
-    const loggedInUserTweets = await Tweet.find({ userId: id });
+    const myTweets = await Tweet.find({ userId });
+    const followingTweets = await Tweet.find({
+      userId: { $in: loggedInUser.following },
+    });
 
-    // Get tweets of users they follow
-    const followingUserTweets = await Promise.all(
-      loggedInUser.following.map((otherUserId) => {
-        return Tweet.find({ userId: otherUserId });
-      })
-    );
-
-    // Combine & return all tweets
     return res.status(200).json({
-      tweets: loggedInUserTweets.concat(...followingUserTweets),
+      tweets: [...myTweets, ...followingTweets],
       success: true,
     });
+
   } catch (error) {
     console.log("Get All Tweets Error:", error);
     return res.status(500).json({
@@ -119,30 +140,20 @@ export const getAllTweets = async (req, res) => {
     });
   }
 };
+
+/* ================= GET FOLLOWING TWEETS ================= */
 export const getFollowingTweets = async (req, res) => {
   try {
-    const id = req.params.id; // logged-in user ID
-    const loggedInUser = await User.findById(id);
+    const userId = req.user;
 
-    if (!loggedInUser) {
-      return res.status(404).json({
-        message: "User not found",
-        success: false,
-      });
-    }
+    const loggedInUser = await User.findById(userId);
 
-    // ❗ Remove logged-in user from following list (important)
-    const followingOnly = loggedInUser.following.filter(
-      (uid) => uid.toString() !== id.toString()
-    );
-
-    // Fetch tweets of following users only
-    const followingUserTweets = await Tweet.find({
-      userId: { $in: followingOnly }
+    const followingTweets = await Tweet.find({
+      userId: { $in: loggedInUser.following },
     });
 
     return res.status(200).json({
-      tweets: followingUserTweets,
+      tweets: followingTweets,
       success: true,
     });
 
